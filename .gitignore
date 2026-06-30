@@ -1,0 +1,24 @@
+# Build artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+build/
+bin/
+
+# The compiled binary (adjust name if your Makefile produces a different one)
+fairruntime
+rune
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
