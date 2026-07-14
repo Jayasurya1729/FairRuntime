@@ -12,6 +12,7 @@ double ResourceManager::compute_adjusted_weight(int task_id, double base_weight,
                                                 size_t task_live_bytes,
                                                 size_t task_allocations,
                                                 double runtime_share,
+                                                uint64_t last_slice_ns,
                                                 std::vector<std::string>* reasons) const {
     double adjusted = base_weight;
 
@@ -28,6 +29,17 @@ double ResourceManager::compute_adjusted_weight(int task_id, double base_weight,
     if (runtime_share > 1.0 + config_.fairness_threshold) {
         adjusted *= 0.75;
         if (reasons) reasons->push_back("Runtime share exceeded fairness target");
+    }
+
+    // A cooperative scheduler can't preempt mid-slice the way a timer-driven
+    // CFS can, so latency_target_ns can't bound a slice as it happens. Instead,
+    // once a slice finishes, we check retroactively: if the task ran longer than
+    // the target before yielding, its weight is penalized for subsequent rounds.
+    // This makes latency_target_ns an enforced fairness signal instead of a
+    // display-only config value.
+    if (last_slice_ns > config_.latency_target_ns) {
+        adjusted *= 0.85;
+        if (reasons) reasons->push_back("Slice duration exceeded latency target");
     }
 
     if (adjusted < 1.0) {

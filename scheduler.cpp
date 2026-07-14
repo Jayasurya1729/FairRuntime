@@ -58,6 +58,10 @@ SchedulingPolicy Scheduler::policy() const {
     return policy_;
 }
 
+TaskControlBlock* Scheduler::current_task() {
+    return current_task_;
+}
+
 const TaskControlBlock* Scheduler::current_task() const {
     return current_task_;
 }
@@ -148,7 +152,7 @@ TaskControlBlock* Scheduler::select_next_task() {
             std::vector<std::string> reasons;
             effective_weight = resource_manager_->compute_adjusted_weight(
                 task->task_id, base_weight, task->allocation_bytes,
-                task->allocation_ops, runtime_share, &reasons);
+                task->allocation_ops, runtime_share, task->last_run_ns, &reasons);
 
             bool is_throttled_now = effective_weight < base_weight;
             if (is_throttled_now != task->throttled) {
@@ -223,6 +227,33 @@ void Scheduler::run() {
     }
 }
 
+void Scheduler::block_current_task() {
+    if (!current_task_) {
+        return;
+    }
+
+    TaskControlBlock* task = current_task_;
+    uint64_t now_ns = get_current_time_ns();
+    uint64_t delta_ns = now_ns - task->slice_start_ns;
+    update_task_runtime(*task, delta_ns);
+    task->status = TaskStatus::Blocked;
+    current_task_ = nullptr;
+    swapcontext(&task->context, &scheduler_context_);
+}
+
+void Scheduler::wake_task(int task_id) {
+    for (auto& task_ptr : tasks_) {
+        if (task_ptr->task_id == task_id) {
+            TaskControlBlock* task = task_ptr.get();
+            if (task->status == TaskStatus::Blocked) {
+                task->status = TaskStatus::Ready;
+                insert_ready_task(task);
+            }
+            break;
+        }
+    }
+}
+
 void Scheduler::yield() {
     if (!current_task_) {
         return;
@@ -240,6 +271,7 @@ void Scheduler::yield() {
 
 void Scheduler::update_task_runtime(TaskControlBlock& task, uint64_t delta_ns) {
     task.total_run_ns += delta_ns;
+    task.last_run_ns = delta_ns;
     task.vruntime_ns += (delta_ns * 1024ULL) / std::max<uint64_t>(1, task.weight);
     telemetry_.record_task_run(task.task_id, delta_ns,task.weight);
 }

@@ -21,7 +21,7 @@ public:
     explicit ResourceManager(const PolicyConfig& config);
     double compute_adjusted_weight(int task_id, double base_weight,
                                    size_t task_live_bytes, size_t task_allocations,
-                                   double runtime_share,
+                                   double runtime_share, uint64_t last_slice_ns,
                                    std::vector<std::string>* reasons = nullptr) const;
     void observe(const std::vector<int>& active_task_ids);
     std::vector<std::string> recent_actions() const;

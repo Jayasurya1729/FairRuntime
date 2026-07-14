@@ -23,7 +23,7 @@ struct TaskControlBlock {
     std::function<void()> body;
     uint64_t           vruntime_ns = 0;
     uint64_t           total_run_ns = 0;
-    uint64_t           last_run_ns = 0;
+    uint64_t           last_run_ns = 0; // duration, in ns, of this task's most recently completed slice
     uint64_t           slice_start_ns = 0;
     int                nice = 0;
     uint64_t           weight = 1024;
@@ -48,6 +48,7 @@ public:
     void run();
     void yield();
 
+    TaskControlBlock* current_task();
     const TaskControlBlock* current_task() const;
     static Scheduler* instance();
     int current_task_id() const;
@@ -88,6 +89,8 @@ private:
     void remove_ready_task(TaskControlBlock* task);
 
 public:
+    void wake_task(int task_id);
+    void block_current_task();
     void record_allocation(size_t bytes);
     void record_free(size_t bytes);
     Telemetry& telemetry();

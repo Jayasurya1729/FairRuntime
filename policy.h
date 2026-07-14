@@ -10,6 +10,7 @@ enum class SchedulingPolicy {
 enum class TaskStatus {
     Ready,
     Running,
+    Blocked,
     Finished,
 };
 
